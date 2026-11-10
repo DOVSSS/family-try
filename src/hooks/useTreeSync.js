@@ -52,16 +52,10 @@ export function useTreeSync(fallbackPersons) {
         if (snapshot.exists()) {
           const data = snapshot.data();
           const remote = Array.isArray(data.persons) ? data.persons : [];
-          const local = readLocal();
 
-          if (remote.length === 0 && local && local.length > 0) {
-            // в облаке пусто, а на устройстве дерево осталось — восстанавливаем
-            setPersons(local);
-            skipNextWrite.current = false;
-          } else {
-            skipNextWrite.current = true;
-            setPersons(remote);
-          }
+          // облако — источник истины: если там пусто, значит дерево удалили намеренно
+          skipNextWrite.current = true;
+          setPersons(remote);
         } else {
           // документа ещё нет — переносим туда текущее локальное дерево
           skipNextWrite.current = true;
