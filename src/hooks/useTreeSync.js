@@ -4,9 +4,11 @@ import { db } from '../firebase';
 
 const STORAGE_KEY = 'family-tree';
 const DOC_REF = doc(db, 'tree', 'family');
-const SAVE_DEBOUNCE_MS = 400;
 /** Сколько ждём первый ответ Firestore, прежде чем работать локально */
 const CONNECT_TIMEOUT_MS = 6000;
+/** Метка сборки и клиента — помогают понять, кто именно записал данные */
+const BUILD_TAG = '2026-11-10-build-4';
+const CLIENT_ID = Math.random().toString(36).slice(2, 10);
 
 function readLocal() {
   try {
@@ -61,7 +63,12 @@ export function useTreeSync(fallbackPersons) {
           skipNextWrite.current = true;
           const seed = readLocal() ?? fallbackPersons;
           setPersons(seed);
-          setDoc(DOC_REF, { persons: seed, updatedAt: serverTimestamp() }).catch((error) => {
+          setDoc(DOC_REF, {
+            persons: seed,
+            updatedAt: serverTimestamp(),
+            build: BUILD_TAG,
+            by: CLIENT_ID,
+          }).catch((error) => {
             console.error('Firestore create:', error);
             setStatus('offline');
             setErrorCode(error.code ?? 'unknown');
@@ -118,20 +125,24 @@ export function useTreeSync(fallbackPersons) {
       return undefined;
     }
 
-    const timer = setTimeout(() => {
-      setDoc(DOC_REF, { persons, updatedAt: serverTimestamp() }, { merge: true })
-        .then(() => {
-          setStatus('live');
-          setErrorCode(null);
-        })
-        .catch((error) => {
-          console.error('Firestore save:', error);
-          setStatus('offline');
-          setErrorCode(error.code ?? 'unknown');
-        });
-    }, SAVE_DEBOUNCE_MS);
+    // пишем сразу, без дебаунса: иначе приход снимка отменяет таймер
+    // и удаление/добавление может не дойти до облака
+    setDoc(
+      DOC_REF,
+      { persons, updatedAt: serverTimestamp(), build: BUILD_TAG, by: CLIENT_ID },
+      { merge: true }
+    )
+      .then(() => {
+        setStatus('live');
+        setErrorCode(null);
+      })
+      .catch((error) => {
+        console.error('Firestore save:', error);
+        setStatus('offline');
+        setErrorCode(error.code ?? 'unknown');
+      });
 
-    return () => clearTimeout(timer);
+    return undefined;
   }, [persons, remoteReady, loaded]);
 
   return { persons, setPersons, loaded, status, errorCode };
