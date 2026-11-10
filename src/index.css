@@ -1,0 +1,462 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.react-flow {
+  width: 100%;
+  height: 100%;
+}
+
+/* ==========================================================
+   Анимации
+   ========================================================== */
+
+@keyframes canvas-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Появление карточки: всплытие + лёгкий масштаб */
+@keyframes node-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.92);
+  }
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Пульсирующее кольцо вокруг только что добавленного человека */
+@keyframes halo-pulse {
+  0% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.55);
+  }
+  70% {
+    opacity: 1;
+    box-shadow: 0 0 0 14px rgba(59, 130, 246, 0);
+  }
+  100% {
+    opacity: 0;
+    box-shadow: 0 0 0 18px rgba(59, 130, 246, 0);
+  }
+}
+
+.app-canvas {
+  background-color: #241a12;
+  animation: canvas-in 500ms ease-out both;
+}
+
+/* Фото Кавказа: заполняет весь экран, масштабируется под окно */
+.app-photo {
+  position: absolute;
+  inset: 0;
+  background-image: url('./assets/caucasus-sunset.jpg');
+  background-position: center 45%;
+  background-size: cover;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+/* Виньетка: края темнее, карточки читаются, панели видны */
+.app-veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse 82% 72% at 50% 46%,
+      rgba(10, 22, 40, 0.02) 0%,
+      rgba(10, 22, 40, 0.1) 64%,
+      rgba(10, 22, 40, 0.22) 100%
+    );
+}
+
+/* --- Тост «Удалено» --- */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.ca-toast {
+  animation: toast-in 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* --- Подтверждение удаления в модалке --- */
+@keyframes confirm-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ca-confirm {
+  animation: confirm-in 220ms ease-out;
+}
+
+/* --- Карточка человека --- */
+.person-node__card {
+  position: relative;
+  animation: node-pop 480ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms ease,
+    border-color 220ms ease;
+  will-change: transform;
+}
+
+@media (hover: hover) {
+  .person-node__card:hover {
+    transform: translateY(-4px);
+    box-shadow:
+      0 14px 28px -8px rgba(30, 64, 175, 0.25),
+      0 6px 12px -6px rgba(15, 23, 42, 0.12);
+    border-color: #93c5fd;
+  }
+}
+
+.person-node__card:active {
+  transform: translateY(-1px) scale(0.985);
+  transition-duration: 90ms;
+}
+
+.person-node__card:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 3px;
+}
+
+/* Кольцо-подсветка для новой карточки (псевдоэлемент,
+   чтобы не перезапускать анимацию появления) */
+.person-node__card::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 0.75rem;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.person-node--new .person-node__card::after {
+  animation: halo-pulse 1.1s ease-out 300ms 2;
+}
+
+.person-node--new .person-node__card {
+  border-color: #93c5fd;
+}
+
+/* Кружок с первой буквой имени или фотографией */
+.person-node__avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 9999px;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #60a5fa, #6366f1);
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.person-node__avatar--photo {
+  background: none;
+  box-shadow: inset 0 0 0 2px #e2e8f0;
+}
+
+.person-node__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Краткое описание на карточке (не больше двух строк) */
+.person-node__desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 2px;
+  width: 100%;
+  text-align: left;
+  font-size: 11px;
+  line-height: 1.3;
+  color: #64748b;
+}
+
+@media (hover: hover) {
+  .person-node__card:hover .person-node__avatar {
+    transform: rotate(-8deg) scale(1.08);
+  }
+}
+
+/* Подсказка "+ Добавить сына" */
+.person-node__hint {
+  opacity: 0.7;
+  transition:
+    opacity 200ms ease,
+    color 200ms ease,
+    letter-spacing 220ms ease;
+}
+
+@media (hover: hover) {
+  .person-node__card:hover .person-node__hint {
+    opacity: 1;
+    color: #2563eb;
+    letter-spacing: 0.015em;
+  }
+}
+
+/* --- Точки-коннекторы --- */
+.react-flow__handle.person-handle {
+  width: 9px;
+  height: 9px;
+  background: #fff;
+  border: 2px solid #94a3b8;
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease,
+    scale 200ms ease;
+}
+
+.react-flow__handle.person-handle:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18);
+  scale: 1.3;
+}
+
+/* --- Связи --- */
+.react-flow__edge .react-flow__edge-path {
+  transition:
+    stroke 200ms ease,
+    stroke-width 200ms ease;
+}
+
+.react-flow__edge.edge-default .react-flow__edge-path {
+  stroke: #94a3b8;
+  stroke-width: var(--edge-width, 1.6px);
+}
+
+@media (hover: hover) {
+  .react-flow__edge.edge-default:hover .react-flow__edge-path {
+    stroke: #3b82f6;
+    stroke-width: calc(var(--edge-width, 1.6px) + 0.8px);
+  }
+}
+
+.react-flow__edge.edge-new .react-flow__edge-path {
+  stroke: #3b82f6;
+  stroke-width: 2.2;
+}
+
+/* --- Бегущая искра по связям --- */
+@keyframes edge-spark {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  18% {
+    stroke-dashoffset: -103;
+  }
+  100% {
+    stroke-dashoffset: -103;
+  }
+}
+
+.edge-spark {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  /* пунктир из одного штриха: по линии бежит один разряд */
+  stroke-dasharray: 12 100;
+  pointer-events: none;
+  animation-name: edge-spark;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.edge-spark--glow {
+  stroke: rgba(56, 189, 248, 0.45);
+  stroke-width: 13;
+  stroke-dasharray: 12.5 100;
+}
+
+/* --- Карточка человека в модалке --- */
+.person-photo {
+  display: grid;
+  place-items: center;
+  width: 160px;
+  height: 160px;
+  border-radius: 1rem;
+  overflow: hidden;
+  background: linear-gradient(135deg, #60a5fa, #6366f1);
+  box-shadow: 0 18px 32px -18px rgba(15, 23, 42, 0.45);
+}
+
+.person-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.person-photo__initial {
+  font-size: 56px;
+  font-weight: 600;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.person-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eef2f7;
+  font-size: 0.875rem;
+}
+
+.person-meta:last-child {
+  border-bottom: 0;
+}
+
+.person-meta dt {
+  flex: none;
+  color: #64748b;
+}
+
+.person-meta dd {
+  margin: 0;
+  text-align: right;
+  color: #1f2937;
+}
+
+/* --- Модальное окно --- */
+@keyframes modal-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-pop {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-backdrop {
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: modal-fade 180ms ease-out;
+}
+
+.modal-card {
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  animation: modal-pop 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.modal-photo {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 9999px;
+  border: 2px dashed #cbd5e1;
+  background: #f8fafc;
+  overflow: hidden;
+  transition:
+    border-color 200ms ease,
+    background-color 200ms ease,
+    transform 200ms ease;
+}
+
+.modal-photo:hover {
+  border-color: #60a5fa;
+  background: #eff6ff;
+  transform: scale(1.03);
+}
+
+.modal-photo__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.modal-card button:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+/* --- Уважение к настройке "меньше движения" --- */
+@media (prefers-reduced-motion: reduce) {
+  .app-canvas,
+  .person-node__card,
+  .person-node--new .person-node__card::after,
+  .modal-backdrop,
+  .modal-card,
+  .ca-toast,
+  .ca-confirm {
+    animation: none;
+  }
+
+  .person-node__card,
+  .person-node__avatar,
+  .person-node__hint,
+  .modal-photo,
+  .react-flow__edge .react-flow__edge-path {
+    transition: none;
+  }
+
+  .person-node__card:hover,
+  .modal-photo:hover {
+    transform: none;
+  }
+
+  .react-flow__edge.animated path {
+    animation: none;
+  }
+
+  /* при «меньше движения» искры не бегут — остаются только линии */
+  .edge-spark {
+    display: none;
+  }
+}
+
