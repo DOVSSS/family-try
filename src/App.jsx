@@ -33,7 +33,7 @@ const DEFAULT_PERSONS = [
 
 function FamilyTree() {
   // Общее дерево: Firestore + локальный кэш
-  const { persons, savePersons, loaded } = useTreeSync(DEFAULT_PERSONS);
+  const { persons, savePersons, loaded } = useTreeSync();
 
   // id человека, которого только что добавили — для анимации
   const [justAddedId, setJustAddedId] = useState(null);

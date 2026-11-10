@@ -3,7 +3,11 @@ import { doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const STORAGE_KEY = 'family-tree';
-const DOC_REF = doc(db, 'tree', 'family');
+/**
+ * Новый документ: старые вкладки продолжают писать в tree/family,
+ * а актуальная версия живёт отдельно, поэтому их записи ничего не ломают.
+ */
+const DOC_REF = doc(db, 'tree', 'family-2');
 /** Сколько ждём первый ответ Firestore, прежде чем работать локально */
 const CONNECT_TIMEOUT_MS = 6000;
 /** Метка сборки и клиента — помогают понять, кто именно записал данные */
@@ -36,9 +40,9 @@ function writeLocal(persons) {
  * а не по факту изменения состояния: иначе клиент с устаревшими данными
  * может «вернуть» удалённых людей в тот момент, когда получит снимок.
  *
- * @param {{ id: string, name: string, fatherId: string|null }[]} fallbackPersons
+ * Пустое облако = пустое дерево: демо-пример в базу не заливается.
  */
-export function useTreeSync(fallbackPersons) {
+export function useTreeSync() {
   const [persons, setPersons] = useState(() => readLocal() ?? []);
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState('connecting'); // connecting | live | offline
@@ -58,11 +62,11 @@ export function useTreeSync(fallbackPersons) {
           const remote = snapshot.data().persons;
           setPersons(Array.isArray(remote) ? remote : []);
         } else {
-          // документа ещё нет — создаём из локального кэша или из примера
-          const seed = readLocal() ?? fallbackPersons;
-          setPersons(seed);
+          // документа ещё нет — начинаем с пустого дерева,
+          // чтобы старые кэши не «воскрешали» удалённых людей
+          setPersons([]);
           setDoc(DOC_REF, {
-            persons: seed,
+            persons: [],
             updatedAt: serverTimestamp(),
             build: BUILD_TAG,
             by: CLIENT_ID,
@@ -92,7 +96,7 @@ export function useTreeSync(fallbackPersons) {
       cancelled = true;
       unsubscribe();
     };
-  }, [fallbackPersons]);
+  }, []);
 
   // если облако не ответило за отведённое время — показываем локальный режим
   useEffect(() => {
