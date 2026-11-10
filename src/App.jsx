@@ -100,17 +100,20 @@ function FamilyTree() {
     ({ name, description, photo }) => {
       if (!addTarget) return;
 
+      // поля без значения не добавляем вовсе: Firestore не принимает undefined
       const newPerson = {
         id: generateId(),
         name,
         fatherId: addTarget.id ?? null,
-        description: description || undefined,
-        photo: photo || undefined,
       };
+      if (description) newPerson.description = description;
+      if (photo) newPerson.photo = photo;
 
-      savePersons([...persons, newPerson]);
-      setJustAddedId(newPerson.id);
+      // сначала закрываем форму, потом сохраняем — ошибка записи
+      // не должна оставлять модалку открытой
       setAddTarget(null);
+      setJustAddedId(newPerson.id);
+      savePersons([...persons, newPerson]);
     },
     [addTarget, persons, savePersons]
   );

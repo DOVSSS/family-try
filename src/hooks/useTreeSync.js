@@ -126,20 +126,35 @@ export function useTreeSync() {
 
       if (!remoteReady) return;
 
-      setDoc(
-        DOC_REF,
-        { persons: next, updatedAt: serverTimestamp(), build: BUILD_TAG, by: CLIENT_ID },
-        { merge: true }
-      )
-        .then(() => {
-          setStatus('live');
-          setErrorCode(null);
-        })
-        .catch((error) => {
-          console.error('Firestore save:', error);
-          setStatus('offline');
-          setErrorCode(error.code ?? 'unknown');
-        });
+      // Firestore не принимает undefined — чистим данные перед записью
+      let clean;
+      try {
+        clean = JSON.parse(JSON.stringify(next));
+      } catch (error) {
+        console.error('Не удалось подготовить дерево к записи', error);
+        return;
+      }
+
+      try {
+        setDoc(
+          DOC_REF,
+          { persons: clean, updatedAt: serverTimestamp(), build: BUILD_TAG, by: CLIENT_ID },
+          { merge: true }
+        )
+          .then(() => {
+            setStatus('live');
+            setErrorCode(null);
+          })
+          .catch((error) => {
+            console.error('Firestore save:', error);
+            setStatus('offline');
+            setErrorCode(error.code ?? 'unknown');
+          });
+      } catch (error) {
+        // синхронная ошибка SDK не должна ломать интерфейс
+        console.error('Firestore save (sync):', error);
+        setStatus('offline');
+      }
     },
     [remoteReady]
   );
