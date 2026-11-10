@@ -218,23 +218,6 @@ html, body, #root {
   }
 }
 
-/* Подсказка "+ Добавить сына" */
-.person-node__hint {
-  opacity: 0.7;
-  transition:
-    opacity 200ms ease,
-    color 200ms ease,
-    letter-spacing 220ms ease;
-}
-
-@media (hover: hover) {
-  .person-node__card:hover .person-node__hint {
-    opacity: 1;
-    color: #2563eb;
-    letter-spacing: 0.015em;
-  }
-}
-
 /* --- Точки-коннекторы --- */
 .react-flow__handle.person-handle {
   width: 9px;
@@ -439,7 +422,6 @@ html, body, #root {
 
   .person-node__card,
   .person-node__avatar,
-  .person-node__hint,
   .modal-photo,
   .react-flow__edge .react-flow__edge-path {
     transition: none;

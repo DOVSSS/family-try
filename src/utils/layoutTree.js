@@ -1,4 +1,4 @@
-﻿import dagre from 'dagre';
+import dagre from 'dagre';
 
 /** Пауза между поколениями: волна «электричества» идёт от корня вверх */
 const FLOW_SLOT_MS = 700;
@@ -76,7 +76,7 @@ export function layoutTree(persons, onOpenPerson, highlightedId = null) {
 
   // Добавляем узлы с размерами (подбирайте под свои карточки)
   persons.forEach(person => {
-    dagreGraph.setNode(person.id, { width: 210, height: 100 });
+    dagreGraph.setNode(person.id, { width: 210, height: 84 });
   });
 
   // Добавляем рёбра (отец -> сын), только если отец есть в дереве

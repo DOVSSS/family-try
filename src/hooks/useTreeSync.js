@@ -29,8 +29,10 @@ function readLocal() {
  * @param {{ id: string, name: string, fatherId: string|null }[]} fallbackPersons
  */
 export function useTreeSync(fallbackPersons) {
-  const [persons, setPersons] = useState(() => readLocal() ?? fallbackPersons);
-  const [loaded] = useState(true);
+  // стартуем только с того, что реально лежит в кэше: демо-пример не должен
+  // попадать в localStorage и «восстанавливаться» в облако
+  const [persons, setPersons] = useState(() => readLocal() ?? []);
+  const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState('connecting'); // connecting | live | offline
   const [errorCode, setErrorCode] = useState(null);
   // первый снимок получен — только после этого можно писать в облако
@@ -48,10 +50,18 @@ export function useTreeSync(fallbackPersons) {
         if (cancelled) return;
 
         if (snapshot.exists()) {
-          skipNextWrite.current = true;
           const data = snapshot.data();
           const remote = Array.isArray(data.persons) ? data.persons : [];
-          setPersons(remote);
+          const local = readLocal();
+
+          if (remote.length === 0 && local && local.length > 0) {
+            // в облаке пусто, а на устройстве дерево осталось — восстанавливаем
+            setPersons(local);
+            skipNextWrite.current = false;
+          } else {
+            skipNextWrite.current = true;
+            setPersons(remote);
+          }
         } else {
           // документа ещё нет — переносим туда текущее локальное дерево
           skipNextWrite.current = true;
@@ -67,6 +77,7 @@ export function useTreeSync(fallbackPersons) {
         setRemoteReady(true);
         setStatus('live');
         setErrorCode(null);
+        setLoaded(true);
       },
       (error) => {
         if (cancelled) return;
@@ -74,6 +85,7 @@ export function useTreeSync(fallbackPersons) {
         console.error('Firestore subscribe:', error);
         setStatus('offline');
         setErrorCode(error.code ?? 'unknown');
+        setLoaded(true);
       }
     );
 
@@ -89,12 +101,16 @@ export function useTreeSync(fallbackPersons) {
     const timer = setTimeout(() => {
       setStatus((prev) => (prev === 'connecting' ? 'offline' : prev));
       setErrorCode((prev) => prev ?? 'timeout');
+      setLoaded(true);
     }, CONNECT_TIMEOUT_MS);
     return () => clearTimeout(timer);
   }, [status]);
 
-  // локальный кэш пишем всегда, в облако — с задержкой и только после первого снимка
+  // локальный кэш пишем только после того, как узнали состояние облака,
+  // иначе пустой старт затрёт сохранённое дерево
   useEffect(() => {
+    if (!loaded) return undefined;
+
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(persons));
     } catch (error) {
@@ -122,7 +138,7 @@ export function useTreeSync(fallbackPersons) {
     }, SAVE_DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-  }, [persons, remoteReady]);
+  }, [persons, remoteReady, loaded]);
 
   return { persons, setPersons, loaded, status, errorCode };
 }

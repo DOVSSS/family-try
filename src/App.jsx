@@ -33,7 +33,7 @@ const DEFAULT_PERSONS = [
 
 function FamilyTree() {
   // Общее дерево: Firestore + локальный кэш
-  const { persons, setPersons, loaded, status, errorCode } = useTreeSync(DEFAULT_PERSONS);
+  const { persons, setPersons, loaded } = useTreeSync(DEFAULT_PERSONS);
 
   // id человека, которого только что добавили — для анимации
   const [justAddedId, setJustAddedId] = useState(null);
@@ -192,6 +192,8 @@ function FamilyTree() {
           edges={edges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
+          minZoom={0.1}
+          maxZoom={2.5}
           attributionPosition="bottom-left"
         >
           <Controls />
@@ -247,31 +249,6 @@ function FamilyTree() {
           </div>
         </div>
       )}
-
-      {/* состояние синхронизации с облаком */}
-      <div
-        className="fixed bottom-4 right-4 z-30 flex items-center gap-2 rounded-full bg-white/85 px-3 py-1.5 text-xs text-gray-600 shadow-md backdrop-blur"
-        title={
-          status === 'offline'
-            ? `Нет связи с Firestore${errorCode ? ` (${errorCode})` : ''}: изменения остаются на этом устройстве`
-            : 'Дерево синхронизировано с Firestore'
-        }
-      >
-        <span
-          className={`h-2 w-2 rounded-full ${
-            status === 'live'
-              ? 'bg-emerald-500'
-              : status === 'offline'
-                ? 'bg-amber-500'
-                : 'bg-slate-400'
-          }`}
-        />
-        {status === 'live'
-          ? 'Синхронизировано'
-          : status === 'offline'
-            ? 'Только на этом устройстве'
-            : 'Подключение…'}
-      </div>
 
       {viewingPerson && (
         <PersonCardModal

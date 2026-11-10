@@ -54,10 +54,6 @@ export default function PersonNode({ data }) {
                 {person.description}
               </span>
             )}
-
-            <span className="person-node__hint text-xs text-blue-500">
-              Открыть карточку
-            </span>
           </span>
         </div>
       </div>
