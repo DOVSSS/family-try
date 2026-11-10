@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -7,7 +7,7 @@ const DOC_REF = doc(db, 'tree', 'family');
 /** Сколько ждём первый ответ Firestore, прежде чем работать локально */
 const CONNECT_TIMEOUT_MS = 6000;
 /** Метка сборки и клиента — помогают понять, кто именно записал данные */
-const BUILD_TAG = '2026-11-10-build-4';
+const BUILD_TAG = '2026-11-10-build-5';
 const CLIENT_ID = Math.random().toString(36).slice(2, 10);
 
 function readLocal() {
@@ -21,27 +21,30 @@ function readLocal() {
   }
 }
 
+function writeLocal(persons) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(persons));
+  } catch (error) {
+    console.warn('localStorage:', error);
+  }
+}
+
 /**
  * Общее дерево в Firestore + локальный кэш в localStorage.
  *
- * Приложение сразу работает с тем, что есть в кэше (или с примером), а облако
- * подключается в фоне: когда придёт снимок документа — данные заменятся
- * актуальными. Если доступа нет, остаётся локальный режим.
+ * В облако пишем только по явному действию пользователя (savePersons),
+ * а не по факту изменения состояния: иначе клиент с устаревшими данными
+ * может «вернуть» удалённых людей в тот момент, когда получит снимок.
  *
  * @param {{ id: string, name: string, fatherId: string|null }[]} fallbackPersons
  */
 export function useTreeSync(fallbackPersons) {
-  // стартуем только с того, что реально лежит в кэше: демо-пример не должен
-  // попадать в localStorage и «восстанавливаться» в облако
   const [persons, setPersons] = useState(() => readLocal() ?? []);
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState('connecting'); // connecting | live | offline
   const [errorCode, setErrorCode] = useState(null);
-  // первый снимок получен — только после этого можно писать в облако
+  // документ прочитан — знаем состояние облака
   const [remoteReady, setRemoteReady] = useState(false);
-
-  // данные пришли из Firestore — не нужно писать их обратно
-  const skipNextWrite = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,15 +55,10 @@ export function useTreeSync(fallbackPersons) {
         if (cancelled) return;
 
         if (snapshot.exists()) {
-          const data = snapshot.data();
-          const remote = Array.isArray(data.persons) ? data.persons : [];
-
-          // облако — источник истины: если там пусто, значит дерево удалили намеренно
-          skipNextWrite.current = true;
-          setPersons(remote);
+          const remote = snapshot.data().persons;
+          setPersons(Array.isArray(remote) ? remote : []);
         } else {
-          // документа ещё нет — переносим туда текущее локальное дерево
-          skipNextWrite.current = true;
+          // документа ещё нет — создаём из локального кэша или из примера
           const seed = readLocal() ?? fallbackPersons;
           setPersons(seed);
           setDoc(DOC_REF, {
@@ -107,43 +105,40 @@ export function useTreeSync(fallbackPersons) {
     return () => clearTimeout(timer);
   }, [status]);
 
-  // локальный кэш пишем только после того, как узнали состояние облака,
-  // иначе пустой старт затрёт сохранённое дерево
+  // кэшируем любое состояние, чтобы дерево не пропадало без сети
   useEffect(() => {
-    if (!loaded) return undefined;
+    if (!loaded) return;
+    writeLocal(persons);
+  }, [persons, loaded]);
 
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(persons));
-    } catch (error) {
-      console.warn('localStorage:', error);
-    }
+  /**
+   * Явное сохранение дерева: сначала локально, затем в облако.
+   * @param {{ id: string, name: string, fatherId: string|null }[]} next
+   */
+  const savePersons = useCallback(
+    (next) => {
+      setPersons(next);
+      writeLocal(next);
 
-    if (!remoteReady) return undefined;
+      if (!remoteReady) return;
 
-    if (skipNextWrite.current) {
-      skipNextWrite.current = false;
-      return undefined;
-    }
+      setDoc(
+        DOC_REF,
+        { persons: next, updatedAt: serverTimestamp(), build: BUILD_TAG, by: CLIENT_ID },
+        { merge: true }
+      )
+        .then(() => {
+          setStatus('live');
+          setErrorCode(null);
+        })
+        .catch((error) => {
+          console.error('Firestore save:', error);
+          setStatus('offline');
+          setErrorCode(error.code ?? 'unknown');
+        });
+    },
+    [remoteReady]
+  );
 
-    // пишем сразу, без дебаунса: иначе приход снимка отменяет таймер
-    // и удаление/добавление может не дойти до облака
-    setDoc(
-      DOC_REF,
-      { persons, updatedAt: serverTimestamp(), build: BUILD_TAG, by: CLIENT_ID },
-      { merge: true }
-    )
-      .then(() => {
-        setStatus('live');
-        setErrorCode(null);
-      })
-      .catch((error) => {
-        console.error('Firestore save:', error);
-        setStatus('offline');
-        setErrorCode(error.code ?? 'unknown');
-      });
-
-    return undefined;
-  }, [persons, remoteReady, loaded]);
-
-  return { persons, setPersons, loaded, status, errorCode };
+  return { persons, setPersons, savePersons, loaded, status, errorCode };
 }

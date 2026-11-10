@@ -33,7 +33,7 @@ const DEFAULT_PERSONS = [
 
 function FamilyTree() {
   // Общее дерево: Firestore + локальный кэш
-  const { persons, setPersons, loaded } = useTreeSync(DEFAULT_PERSONS);
+  const { persons, savePersons, loaded } = useTreeSync(DEFAULT_PERSONS);
 
   // id человека, которого только что добавили — для анимации
   const [justAddedId, setJustAddedId] = useState(null);
@@ -108,11 +108,11 @@ function FamilyTree() {
         photo: photo || undefined,
       };
 
-      setPersons(prev => [...prev, newPerson]);
+      savePersons([...persons, newPerson]);
       setJustAddedId(newPerson.id);
       setAddTarget(null);
     },
-    [addTarget]
+    [addTarget, persons, savePersons]
   );
 
   // Удаление человека вместе с его потомками
@@ -123,7 +123,7 @@ function FamilyTree() {
     const removed = persons.filter(person => ids.has(person.id));
     if (removed.length === 0) return;
 
-    setPersons(prev => prev.filter(person => !ids.has(person.id)));
+    savePersons(persons.filter(person => !ids.has(person.id)));
     setViewingId(null);
     setNotice({
       text:
@@ -132,18 +132,18 @@ function FamilyTree() {
           : `Удалено: ${removed[0].name}`,
       removed,
     });
-  }, [viewingId, persons]);
+  }, [viewingId, persons, savePersons]);
 
   const handleUndoDelete = useCallback(() => {
     if (!notice?.removed) return;
     const { removed } = notice;
-    setPersons(prev => [...prev, ...removed]);
+    savePersons([...persons, ...removed]);
     setNotice(null);
-  }, [notice]);
+  }, [notice, persons, savePersons]);
 
   const handleRestoreExample = useCallback(() => {
-    setPersons(DEFAULT_PERSONS.map(person => ({ ...person })));
-  }, []);
+    savePersons(DEFAULT_PERSONS.map(person => ({ ...person })));
+  }, [savePersons]);
 
   // Данные для открытой карточки
   const viewingPerson = useMemo(
